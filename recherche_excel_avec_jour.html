@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recherche d'occurrences avec Jour</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        input[type="text"], input[type="file"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="file"] {
+            padding: 5px 0;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        button.secondary {
+            background-color: #27ae60;
+        }
+        button.secondary:hover {
+            background-color: #219653;
+        }
+        #results {
+            margin-top: 30px;
+            display: none;
+        }
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .results-info {
+            font-weight: 600;
+            color: #27ae60;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .day-cell {
+            font-family: monospace;
+            color: #2c3e50;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .sheet-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .cell-ref {
+            color: #7f8c8d;
+            font-family: monospace;
+        }
+        .content {
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+        .error {
+            color: #e74c3c;
+            padding: 10px;
+            background-color: #fadbd8;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: none;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .instructions {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .instructions ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
+        .instructions li {
+            margin-bottom: 5px;
+        }
+        .file-info {
+            background-color: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
+        .day-format-selector {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Recherche d'occurrences avec Jour</h1>
+        
+        <div class="instructions">
+            <h3>Instructions</h3>
+            <ul>
+                <li>Sélectionnez un fichier Excel depuis <strong>D:\Documents\epenspamar\Desktop</strong></li>
+                <li>Entrez le terme à rechercher</li>
+                <li>Sélectionnez la colonne qui contient le jour (ou laissez "Auto-détection")</li>
+                <li>Choisissez si vous voulez rechercher dans tous les onglets</li>
+                <li>Cliquez sur "Rechercher" pour lancer la recherche</li>
+                <li>Un <strong>nouveau fichier</strong> sera créé avec un onglet nommé <strong>"occurence"</strong> contenant les résultats avec le jour</li>
+            </ul>
+        </div>
+        
+        <div class="form-group">
+            <label for="fileInput">Fichier Excel :</label>
+            <input type="file" id="fileInput" accept=".xlsx, .xls" required>
+            <div id="fileInfo" class="file-info"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="searchTerm">Terme à rechercher :</label>
+            <input type="text" id="searchTerm" placeholder="Ex: Math, Physique, TP..." required>
+        </div>
+        
+        <div class="form-group">
+            <label for="dayColumn">Colonne contenant le jour :</label>
+            <select id="dayColumn">
+                <option value="auto">Auto-détection</option>
+                <option value="A">Colonne A</option>
+                <option value="B">Colonne B</option>
+                <option value="C">Colonne C</option>
+                <option value="D">Colonne D</option>
+                <option value="E">Colonne E</option>
+                <option value="F">Colonne F</option>
+                <option value="G">Colonne G</option>
+                <option value="H">Colonne H</option>
+                <option value="I">Colonne I</option>
+                <option value="J">Colonne J</option>
+            </select>
+            <div class="day-format-selector">
+                <label>
+                    <input type="radio" name="dayFormat" value="date" checked> Date complète (ex: 15/01/2024)
+                </label>
+                <label style="margin-left: 15px;">
+                    <input type="radio" name="dayFormat" value="dayName"> Nom du jour (ex: Lundi)
+                </label>
+                <label style="margin-left: 15px;">
+                    <input type="radio" name="dayFormat" value="dayNumber"> Numéro du jour (ex: 15)
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="searchAllSheets" checked>
+                <label for="searchAllSheets" style="font-weight: normal; margin-bottom: 0;">
+                    Rechercher dans tous les onglets
+                </label>
+            </div>
+        </div>
+        
+        <button id="searchBtn" disabled>Rechercher</button>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">Recherche en cours...</p>
+        </div>
+        
+        <div id="error" class="error"></div>
+        
+        <div id="results">
+            <div class="results-header">
+                <div class="results-info" id="resultsCount"></div>
+                <button id="downloadBtn" class="secondary">
+                    📥 Télécharger le fichier avec onglet "occurence"
+                </button>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Onglet</th>
+                            <th>Cellule</th>
+                            <th>Jour</th>
+                            <th>Contenu</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let originalWorkbook = null;
+        let newWorkbook = null;
+        let searchResults = [];
+        let originalFileName = '';
+        let sheetHeaders = {};
+        
+        // Éléments DOM
+        const fileInput = document.getElementById('fileInput');
+        const searchTermInput = document.getElementById('searchTerm');
+        const dayColumnSelect = document.getElementById('dayColumn');
+        const searchAllSheetsCheckbox = document.getElementById('searchAllSheets');
+        const searchBtn = document.getElementById('searchBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const resultsDiv = document.getElementById('results');
+        const resultsCount = document.getElementById('resultsCount');
+        const resultsBody = document.getElementById('resultsBody');
+        const fileInfo = document.getElementById('fileInfo');
+        
+        // Activer/désactiver le bouton de recherche
+        function updateSearchButton() {
+            const hasFile = fileInput.files.length > 0;
+            const hasSearchTerm = searchTermInput.value.trim() !== '';
+            searchBtn.disabled = !(hasFile && hasSearchTerm);
+            
+            // Afficher les infos du fichier
+            if (hasFile) {
+                const file = fileInput.files[0];
+                fileInfo.textContent = `Fichier sélectionné: ${file.name} (${(file.size / 1024).toFixed(2)} Ko)`;
+                fileInfo.style.display = 'block';
+            } else {
+                fileInfo.style.display = 'none';
+            }
+        }
+        
+        // Écouteurs d'événements
+        fileInput.addEventListener('change', updateSearchButton);
+        searchTermInput.addEventListener('input', updateSearchButton);
+        searchBtn.addEventListener('click', performSearch);
+        downloadBtn.addEventListener('click', downloadResults);
+        
+        // Fonction pour détecter automatiquement la colonne de jour
+        function detectDayColumn(headers) {
+            const dayKeywords = ['jour', 'date', 'day', 'date/heure', 'horodatage', 'timestamp'];
+            
+            for (let i = 0; i < headers.length; i++) {
+                const header = String(headers[i]).toLowerCase();
+                for (const keyword of dayKeywords) {
+                    if (header.includes(keyword)) {
+                        return i; // Retourne l'index de la colonne
+                    }
+                }
+            }
+            return -1; // Aucune colonne trouvée
+        }
+        
+        // Fonction pour formater le jour selon le choix de l'utilisateur
+        function formatDayValue(value, formatType) {
+            if (!value) return '';
+            
+            const dateValue = new Date(value);
+            
+            // Vérifier si la valeur est une date valide
+            if (isNaN(dateValue.getTime())) {
+                // Si ce n'est pas une date, retourner la valeur telle quelle
+                return String(value);
+            }
+            
+            switch (formatType) {
+                case 'date':
+                    // Format : JJ/MM/AAAA
+                    return dateValue.toLocaleDateString('fr-FR');
+                case 'dayName':
+                    // Format : Lundi, Mardi, etc.
+                    const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+                    return days[dateValue.getDay()];
+                case 'dayNumber':
+                    // Format : 1, 2, 3, etc.
+                    return dateValue.getDate().toString();
+                default:
+                    return String(value);
+            }
+        }
+        
+        // Effectuer la recherche
+        async function performSearch() {
+            try {
+                // Masquer les erreurs précédentes
+                errorDiv.style.display = 'none';
+                
+                // Afficher le chargement
+                loadingDiv.style.display = 'block';
+                resultsDiv.style.display = 'none';
+                
+                // Lire le fichier
+                const file = fileInput.files[0];
+                originalFileName = file.name;
+                
+                const data = await file.arrayBuffer();
+                originalWorkbook = XLSX.read(data, { type: 'array' });
+                
+                // Récupérer les paramètres
+                const searchTerm = searchTermInput.value.trim().toLowerCase();
+                const searchAllSheets = searchAllSheetsCheckbox.checked;
+                const dayColumn = dayColumnSelect.value;
+                const dayFormat = document.querySelector('input[name="dayFormat"]:checked').value;
+                
+                // Créer un nouveau workbook pour le résultat
+                newWorkbook = XLSX.utils.book_new();
+                
+                // Déterminer les onglets à analyser
+                const sheetsToSearch = searchAllSheets 
+                    ? originalWorkbook.SheetNames
+                    : [originalWorkbook.SheetNames[0]];
+                
+                // Rechercher les occurrences
+                searchResults = [];
+                
+                for (const sheetName of sheetsToSearch) {
+                    const worksheet = originalWorkbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    // Déterminer l'index de la colonne de jour
+                    let dayColIndex = -1;
+                    
+                    if (dayColumn === 'auto') {
+                        // Auto-détection
+                        if (jsonData.length > 0) {
+                            dayColIndex = detectDayColumn(jsonData[0]);
+                        }
+                    } else {
+                        // Colonne spécifiée par l'utilisateur
+                        dayColIndex = XLSX.utils.decode_col(dayColumn);
+                    }
+                    
+                    // Parcourir toutes les cellules
+                    for (let rowIdx = 0; rowIdx < jsonData.length; rowIdx++) {
+                        for (let colIdx = 0; colIdx < jsonData[rowIdx].length; colIdx++) {
+                            const cellValue = jsonData[rowIdx][colIdx];
+                            if (cellValue !== undefined && cellValue !== null) {
+                                const cellValueStr = String(cellValue).toLowerCase();
+                                if (cellValueStr.includes(searchTerm)) {
+                                    // Convertir les indices en référence Excel (A1, B2, etc.)
+                                    const cellRef = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
+                                    
+                                    // Récupérer le jour
+                                    let dayValue = '';
+                                    
+                                    if (dayColIndex >= 0 && jsonData[rowIdx][dayColIndex]) {
+                                        dayValue = formatDayValue(jsonData[rowIdx][dayColIndex], dayFormat);
+                                    }
+                                    
+                                    searchResults.push({
+                                        sheet: sheetName,
+                                        cellRef: cellRef,
+                                        day: dayValue,
+                                        content: String(cellValue).substring(0, 100) + 
+                                            (String(cellValue).length > 100 ? '...' : ''),
+                                        fullContent: String(cellValue),
+                                        row: rowIdx,
+                                        col: colIdx
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Créer l'onglet "occurence" dans le nouveau workbook
+                createOccurenceSheet(newWorkbook, searchResults);
+                
+                // Afficher les résultats
+                displayResults(searchResults);
+                
+                // Masquer le chargement
+                loadingDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = `Erreur: ${error.message}`;
+                errorDiv.style.display = 'block';
+                console.error('Erreur:', error);
+            }
+        }
+        
+        // Créer l'onglet "occurence" dans le nouveau workbook
+        function createOccurenceSheet(workbook, results) {
+            // Créer les données pour l'onglet occurence
+            const sheetData = [
+                ['Onglet', 'Cellule', 'Jour', 'Contenu']
+            ];
+            
+            results.forEach(result => {
+                sheetData.push([
+                    result.sheet,
+                    result.cellRef,
+                    result.day,
+                    result.content
+                ]);
+            });
+            
+            // Créer la feuille de calcul
+            const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+            
+            // Ajouter le style aux en-têtes
+            const headerRange = XLSX.utils.decode_range('A1:D1');
+            for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+                const cellRef = XLSX.utils.encode_cell({ r: 0, c: col });
+                if (!worksheet[cellRef]) {
+                    worksheet[cellRef] = {};
+                }
+                worksheet[cellRef].s = {
+                    font: { bold: true, color: { rgb: 'FFFFFF' } },
+                    fill: { fgColor: { rgb: '4F81BD' } }
+                };
+            }
+            
+            // Ajouter la feuille au workbook
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'occurence');
+        }
+        
+        // Afficher les résultats dans le tableau HTML
+        function displayResults(results) {
+            // Effacer les anciens résultats
+            resultsBody.innerHTML = '';
+            
+            // Mettre à jour le compteur
+            resultsCount.textContent = `${results.length} occurrence(s) trouvée(s)`;
+            
+            // Ajouter chaque résultat au tableau
+            results.forEach(result => {
+                const row = document.createElement('tr');
+                
+                // Onglet
+                const sheetCell = document.createElement('td');
+                sheetCell.className = 'sheet-name';
+                sheetCell.textContent = result.sheet;
+                row.appendChild(sheetCell);
+                
+                // Cellule
+                const cellRefCell = document.createElement('td');
+                cellRefCell.className = 'cell-ref';
+                cellRefCell.textContent = result.cellRef;
+                row.appendChild(cellRefCell);
+                
+                // Jour
+                const dayCell = document.createElement('td');
+                dayCell.className = 'day-cell';
+                dayCell.textContent = result.day || 'N/A';
+                row.appendChild(dayCell);
+                
+                // Contenu
+                const contentCell = document.createElement('td');
+                contentCell.className = 'content';
+                contentCell.textContent = result.content;
+                row.appendChild(contentCell);
+                
+                resultsBody.appendChild(row);
+            });
+        }
+        
+        // Télécharger le fichier avec l'onglet "occurence"
+        function downloadResults() {
+            if (!newWorkbook) {
+                errorDiv.textContent = 'Aucun résultat à télécharger.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                // Générer le fichier Excel
+                const wbout = XLSX.write(newWorkbook, { bookType: 'xlsx', type: 'array' });
+                
+                // Créer un nom de fichier pour le nouveau fichier
+                const nameWithoutExt = originalFileName.replace(/\.[^.]+$/, '');
+                const newFileName = `${nameWithoutExt}_occurence.xlsx`;
+                
+                // Créer un Blob et le télécharger
+                const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                saveAs(blob, newFileName);
+                
+            } catch (error) {
+                errorDiv.textContent = `Erreur lors du téléchargement: ${error.message}`;
+                errorDiv.style.display = 'block';
+                console.error('Erreur:', error);
+            }
+        }
+        
+        // Initialisation
+        updateSearchButton();
+    </script>
+</body>
+</html>
